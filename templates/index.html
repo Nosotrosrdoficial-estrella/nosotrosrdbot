@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATM BOT | Centro de Mando</title>
+    <form method="post">
+        <input name="hwid" placeholder="HWID" required>
+        <input name="nombre_socio" placeholder="Nombre del socio">
+        <select name="plan" required>
+            <option value="1 Mes">1 Mes</option>
+            <option value="3 Meses">3 Meses</option>
+            <option value="1 A1o">1 A1o</option>
+        </select>
+        <button class="btn" type="submit">Registrar</button>
+    </form>
+    <form method="get" style="margin-top:10px;">
+        <button class="btn" name="activos" value="1" type="submit">FILTRAR ACTIVOS</button>
+        <a href="/" class="btn">Mostrar Todos</a>
+    </form>
+    <table>
+        <tr>
+            <th>HWID</th>
+            <th>Nombre Socio</th>
+            <th>Plan</th>
+            <th>VENCIMIENTO</th>
+            <th>Das Restantes</th>
+            <th>Status</th>
+            <th>Acciones</th>
+        </tr>
+        {% for d in dispositivos %}
+        {% set status, color, dias_restantes = estado_visual(d['status'], d['fecha_vencimiento']) %}
+        <tr>
+            <td>{{ d['hwid'] }}</td>
+            <td>{{ d['nombre_socio'] or '' }}</td>
+            <td>{{ d['plan'] or '' }}</td>
+            <td>{{ d['fecha_vencimiento'] or '' }}</td>
+            <td>{{ dias_restantes }}</td>
+            <td class="{{ color }}">{{ status }}</td>
+            <td>
+                <button class="btn" name="aprobar_{{ d['hwid'] }}" type="submit">APROBAR</button>
+                <button class="btn" name="bloquear_{{ d['hwid'] }}" type="submit">BLOQUEAR</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- Zona de Descargas Oficial -->
+    <div style="margin:40px auto 0 auto; max-width:500px; text-align:center;">
+        <h2 style="color:#00FFFF; text-shadow:0 0 8px #00FFFF, 0 0 16px #00FFFF; margin-bottom:18px;">Zona de Descargas Oficial</h2>
+        <a href="https://www.mediafire.com/file/p568ehl26xyw326/atmbot-1.0-armeabi-v7a_arm64-v8a-debug_%25281%2529.apk/file" target="_blank" style="text-decoration:none;">
+            <button class="glow-pulse-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#00FFFF" viewBox="0 0 24 24" style="margin-right:10px;vertical-align:middle;"><path d="M12 16.5a1 1 0 0 1-.7-.29l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 2 0v9.09l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5A1 1 0 0 1 12 16.5z"></path><path d="M20 20H4a1 1 0 0 1 0-2h16a1 1 0 0 1 0 2z"></path></svg>
+                DESCARGAR SENTINEL v1.1 (ESTABLE)
+            </button>
+        </a>
+    </div>
+
+    <style>
+    @keyframes glowPulse {
+        0% { box-shadow: 0 0 16px #00FFFF, 0 0 32px #00FFFF; }
+        50% { box-shadow: 0 0 32px #00FFFF, 0 0 64px #00FFFF; }
+        100% { box-shadow: 0 0 16px #00FFFF, 0 0 32px #00FFFF; }
+    }
+    .glow-pulse-btn {
+        background: #000;
+        color: #00FFFF;
+        border: 2.5px solid #00FFFF;
+        border-radius: 12px;
+        padding: 22px 38px;
+        font-size: 1.25em;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: background 0.2s, color 0.2s;
+        animation: glowPulse 1.6s infinite;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 0 16px #00FFFF, 0 0 32px #00FFFF;
+        text-shadow: 0 0 8px #00FFFF;
+    }
+    .glow-pulse-btn:hover {
+        background: #00FFFF;
+        color: #000;
+    }
+    </style>
+    <script>
+    // JS para ocultar filas vencidas si se pulsa FILTRAR ACTIVOS
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.get('activos') === '1') {
+            document.querySelectorAll('tr').forEach(function(row) {
+                if(row.querySelector('.rojo')) row.style.display = 'none';
+            });
+        }
+    });
+    </script>
+            </tbody>
+        </table>
