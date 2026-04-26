@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 import os
 
-from flask import Flask, jsonify, request, redirect, url_for, render_template_string
+from flask import Flask, jsonify, redirect, render_template_string, request, url_for
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -15,47 +15,56 @@ def _load_db():
     if not os.path.exists(DB_FILE):
         return {"devices": {}}
     try:
-        with open(DB_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data, dict):
-            return {"devices": {}}
-        if "devices" not in data or not isinstance(data["devices"], dict):
-            data["devices"] = {}
-        return data
+        with open(DB_FILE, "r", encoding="utf-8") as file_handle:
+            data = json.load(file_handle)
     except Exception:
         return {"devices": {}}
 
+    if not isinstance(data, dict):
+        return {"devices": {}}
+    if "devices" not in data or not isinstance(data["devices"], dict):
+        data["devices"] = {}
+    return data
+
 
 def _save_db(data):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    with open(DB_FILE, "w", encoding="utf-8") as file_handle:
+        json.dump(data, file_handle, indent=2, ensure_ascii=False)
 
 
-def _upsert_device(hwid, nombre=""):
-    hwid = (hwid or "").strip()
-    if not hwid:
+def _upsert_device(hwid, nombre="", email=""):
+    normalized_hwid = (hwid or "").strip()
+    if not normalized_hwid:
         return None
+
     db = _load_db()
     devices = db["devices"]
     now = datetime.utcnow().isoformat()
-    if hwid not in devices:
-        devices[hwid] = {
-            "hwid": hwid,
-            "nombre": nombre.strip(),
+    device = devices.get(normalized_hwid)
+
+    if device is None:
+        device = {
+            "hwid": normalized_hwid,
+            "nombre": (nombre or "").strip(),
+            "email": (email or "").strip(),
             "status": "pendiente",
             "authorized": False,
             "created_at": now,
             "last_seen": now,
         }
+        devices[normalized_hwid] = device
     else:
-        devices[hwid]["last_seen"] = now
+        device["last_seen"] = now
         if nombre:
-            devices[hwid]["nombre"] = nombre.strip()
+            device["nombre"] = nombre.strip()
+        if email:
+            device["email"] = email.strip()
+
     _save_db(db)
-    return devices[hwid]
+    return device
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "online", "message": "SENTINEL STARK ACTIVE"})
 
@@ -63,17 +72,16 @@ def home():
 @app.route("/validate", methods=["POST"])
 def validate():
     payload = request.get_json(silent=True) or {}
-    hwid = (payload.get("hardware_id") or payload.get("device_id") or "").strip()
+    hwid = (payload.get("hardware_id") or payload.get("device_id") or payload.get("hwid") or "").strip()
     nombre = (payload.get("nombre") or "").strip()
 
     if not hwid:
-        return jsonify({"authorized": False, "error": "hardware_id requerido"}), 400
+        return jsonify({"authorized": False, "status": "pendiente", "error": "hardware_id requerido"}), 400
 
     device = _upsert_device(hwid, nombre)
-    authorized = bool(device.get("authorized", False))
     return jsonify(
         {
-            "authorized": authorized,
+            "authorized": bool(device.get("authorized", False)),
             "status": device.get("status", "pendiente"),
             "hwid": hwid,
         }
@@ -90,18 +98,13 @@ def registro_cliente():
     if not hwid:
         return jsonify({"ok": False, "error": "hwid requerido"}), 400
 
-    device = _upsert_device(hwid, nombre)
-    if email:
-        db = _load_db()
-        db["devices"][hwid]["email"] = email
-        _save_db(db)
-
+    device = _upsert_device(hwid, nombre, email)
     return jsonify(
         {
             "ok": True,
-            "ya_registrado": device.get("created_at") != device.get("last_seen"),
             "status": device.get("status", "pendiente"),
             "authorized": bool(device.get("authorized", False)),
+            "hwid": hwid,
         }
     )
 
@@ -133,26 +136,14 @@ def protocol_verify(hwid):
     )
 
 
-@app.route("/admin", methods=["GET", "POST"])
+@app.route("/admin", methods=["GET"])
 def admin_panel():
     db = _load_db()
-    devices = db["devices"]
-
-    if request.method == "POST":
-        hwid = (request.form.get("hwid") or "").strip()
-        action = (request.form.get("action") or "").strip().lower()
-        if hwid in devices:
-            if action == "accept":
-                devices[hwid]["authorized"] = True
-                devices[hwid]["status"] = "aprobado"
-            elif action == "reject":
-                devices[hwid]["authorized"] = False
-                devices[hwid]["status"] = "pendiente"
-            devices[hwid]["updated_at"] = datetime.utcnow().isoformat()
-            _save_db(db)
-        return redirect(url_for("admin_panel"))
-
-    rows = sorted(devices.values(), key=lambda x: x.get("last_seen", ""), reverse=True)
+    rows = sorted(
+        db["devices"].values(),
+        key=lambda row: row.get("last_seen", ""),
+        reverse=True,
+    )
     html = """
     <!doctype html>
     <html lang="es">
@@ -172,25 +163,26 @@ def admin_panel():
     </head>
     <body>
       <h2>Sentinel Admin - Dispositivos</h2>
-      <p>Usa Aceptar para activar el bot en el telefono.</p>
+      <p>Ruta del panel: /admin</p>
       <table>
         <tr>
-          <th>HWID</th><th>Nombre</th><th>Estado</th><th>Autorizado</th><th>Ultima vez</th><th>Accion</th>
+          <th>HWID</th><th>Nombre</th><th>Email</th><th>Estado</th><th>Autorizado</th><th>Ultima vez</th><th>Accion</th>
         </tr>
         {% for d in rows %}
         <tr>
           <td>{{ d.get('hwid','') }}</td>
           <td>{{ d.get('nombre','') }}</td>
+          <td>{{ d.get('email','') }}</td>
           <td class="{{ 'ok' if d.get('status') == 'aprobado' else 'wait' }}">{{ d.get('status','pendiente') }}</td>
           <td>{{ d.get('authorized', False) }}</td>
           <td>{{ d.get('last_seen','') }}</td>
           <td>
-            <form method="post" style="display:inline;">
+            <form method="post" action="{{ url_for('admin_action') }}" style="display:inline;">
               <input type="hidden" name="hwid" value="{{ d.get('hwid','') }}" />
               <input type="hidden" name="action" value="accept" />
               <button type="submit">Aceptar</button>
             </form>
-            <form method="post" style="display:inline;">
+            <form method="post" action="{{ url_for('admin_action') }}" style="display:inline;">
               <input type="hidden" name="hwid" value="{{ d.get('hwid','') }}" />
               <input type="hidden" name="action" value="reject" />
               <button type="submit">Pendiente</button>
@@ -203,6 +195,26 @@ def admin_panel():
     </html>
     """
     return render_template_string(html, rows=rows)
+
+
+@app.route("/admin", methods=["POST"])
+def admin_action():
+    db = _load_db()
+    devices = db["devices"]
+    hwid = (request.form.get("hwid") or "").strip()
+    action = (request.form.get("action") or "").strip().lower()
+
+    if hwid in devices:
+        if action == "accept":
+            devices[hwid]["authorized"] = True
+            devices[hwid]["status"] = "aprobado"
+        elif action == "reject":
+            devices[hwid]["authorized"] = False
+            devices[hwid]["status"] = "pendiente"
+        devices[hwid]["updated_at"] = datetime.utcnow().isoformat()
+        _save_db(db)
+
+    return redirect(url_for("admin_panel"))
 
 
 if __name__ == "__main__":
