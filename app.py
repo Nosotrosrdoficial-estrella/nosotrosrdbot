@@ -7,14 +7,9 @@ CORS(app)
 
 @app.route('/')
 def home():
-    return jsonify({
-        "status": "online",
-        "message": "SENTINEL CORE v1.0 ACTIVE"
-    })
+    return jsonify({"status": "online", "message": "SENTINEL ACTIVE"})
 
 
 @app.route('/validate', methods=['POST'])
 def validate():
     return jsonify({"authorized": True})
-
-# No pongas nada mas debajo de esta linea
