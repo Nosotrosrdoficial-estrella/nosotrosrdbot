@@ -17,6 +17,7 @@ from datetime import datetime
 from math import floor
 
 import requests
+from requests.exceptions import RequestException, Timeout
 from kivy.clock import Clock
 from kivy.core.clipboard import Clipboard
 from kivy.core.window import Window
@@ -47,6 +48,11 @@ try:
     from config_advanced import advanced_config
 except Exception:
     advanced_config = None
+
+try:
+    from config import BASE_URL as CONFIG_BASE_URL
+except Exception:
+    CONFIG_BASE_URL = ""
 
 Window.size = (1320, 840)
 Window.clearcolor = (0.03, 0.05, 0.10, 1)
@@ -1615,6 +1621,8 @@ class SentinelCoreTerminal(MDApp):
 
     def _panel_base_candidates(self):
         candidates = [self._decode_panel_base()]
+        if CONFIG_BASE_URL:
+            candidates.insert(0, CONFIG_BASE_URL)
         if self.active_panel_base:
             candidates.insert(0, self.active_panel_base)
 
@@ -1915,15 +1923,70 @@ class SentinelCoreTerminal(MDApp):
             nombre = (self.identity.get("nombre") or "").strip()
             validated = False
             last_error = ""
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
 
             for base in self._panel_base_candidates():
-                validate_url = f"{base}/validar/{hwid}"
+                health_url = f"{base}/"
+                validate_post_url = f"{base}/validate"
+                validate_legacy_url = f"{base}/validar/{hwid}"
                 legacy_url = f"{base}/protocol/v1/verify/{hwid}"
                 query = {"nombre": nombre} if nombre else None
+                server_online = False
 
                 try:
                     t0 = time.time()
-                    response = requests.get(validate_url, params=query, timeout=8)
+                    response = requests.get(health_url, headers=headers, timeout=8)
+                    self.last_latency_ms = int((time.time() - t0) * 1000)
+                    if response.status_code == 200:
+                        try:
+                            payload = response.json()
+                            server_online = str(payload.get("status", "")).strip().lower() == "online"
+                        except Exception:
+                            server_online = False
+
+                    if response.status_code != 200 or not server_online:
+                        last_error = f"HTTP {response.status_code} en /"
+                        self._notify(f"Conexion backend fallida [{base}]: {last_error}")
+                        continue
+
+                    t1 = time.time()
+                    payload = {"hardware_id": hwid, "nombre": nombre}
+                    response = requests.post(
+                        validate_post_url,
+                        json=payload,
+                        headers=headers,
+                        timeout=8,
+                    )
+                    self.last_latency_ms = int((time.time() - t1) * 1000)
+                    if response.status_code == 200:
+                        payload = response.json()
+                        authorized = bool(payload.get("authorized", True))
+                        self.active_panel_base = base
+                        validated = True
+                        break
+
+                    last_error = f"HTTP {response.status_code} en /validate"
+                    self._notify(f"Validacion backend fallida [{base}]: {last_error}")
+                except Timeout:
+                    last_error = f"Timeout en {base}"
+                    self._notify(last_error)
+                    continue
+                except RequestException as ex:
+                    last_error = f"Error de red en {base}: {ex}"
+                    self._notify(last_error)
+                    continue
+                except Exception as ex:
+                    last_error = f"Error inesperado en {base}: {ex}"
+                    self._notify(last_error)
+                    continue
+
+                # Fallback REST legado
+                try:
+                    t0 = time.time()
+                    response = requests.get(validate_legacy_url, params=query, headers=headers, timeout=8)
                     self.last_latency_ms = int((time.time() - t0) * 1000)
                     if response.status_code == 200:
                         payload = response.json()
@@ -1934,16 +1997,22 @@ class SentinelCoreTerminal(MDApp):
                         break
 
                     if response.status_code not in (404,):
-                        last_error = f"HTTP {response.status_code}"
-                        continue
+                        last_error = f"HTTP {response.status_code} en /validar"
+                        self._notify(f"Validacion legacy fallida [{base}]: {last_error}")
+                except Timeout:
+                    last_error = f"Timeout en /validar ({base})"
+                    self._notify(last_error)
+                except RequestException as ex:
+                    last_error = f"Error de red en /validar ({base}): {ex}"
+                    self._notify(last_error)
                 except Exception as ex:
-                    last_error = str(ex)
-                    continue
+                    last_error = f"Error inesperado en /validar ({base}): {ex}"
+                    self._notify(last_error)
 
                 # Fallback legado
                 try:
                     t0 = time.time()
-                    response = requests.get(legacy_url, timeout=8)
+                    response = requests.get(legacy_url, headers=headers, timeout=8)
                     self.last_latency_ms = int((time.time() - t0) * 1000)
                     if response.status_code == 200:
                         payload = response.json()
@@ -1951,9 +2020,17 @@ class SentinelCoreTerminal(MDApp):
                         self.active_panel_base = base
                         validated = True
                         break
-                    last_error = f"HTTP {response.status_code}"
+                    last_error = f"HTTP {response.status_code} en /protocol/v1/verify"
+                    self._notify(f"Validacion protocol fallida [{base}]: {last_error}")
+                except Timeout:
+                    last_error = f"Timeout en /protocol/v1/verify ({base})"
+                    self._notify(last_error)
+                except RequestException as ex:
+                    last_error = f"Error de red en /protocol/v1/verify ({base}): {ex}"
+                    self._notify(last_error)
                 except Exception as ex:
-                    last_error = str(ex)
+                    last_error = f"Error inesperado en /protocol/v1/verify ({base}): {ex}"
+                    self._notify(last_error)
 
             if not validated:
                 self.validation_error = last_error or "No se pudo validar"
