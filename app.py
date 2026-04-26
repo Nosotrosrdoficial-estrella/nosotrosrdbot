@@ -1,6 +1,4 @@
 from datetime import datetime
-import json
-import os
 
 from flask import Flask, jsonify, redirect, render_template_string, request, url_for
 from flask_cors import CORS
@@ -8,28 +6,8 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-DB_FILE = "devices_registry.json"
-
-
-def _load_db():
-    if not os.path.exists(DB_FILE):
-        return {"devices": {}}
-    try:
-        with open(DB_FILE, "r", encoding="utf-8") as file_handle:
-            data = json.load(file_handle)
-    except Exception:
-        return {"devices": {}}
-
-    if not isinstance(data, dict):
-        return {"devices": {}}
-    if "devices" not in data or not isinstance(data["devices"], dict):
-        data["devices"] = {}
-    return data
-
-
-def _save_db(data):
-    with open(DB_FILE, "w", encoding="utf-8") as file_handle:
-        json.dump(data, file_handle, indent=2, ensure_ascii=False)
+# Registro en memoria (sin inicialización de base de datos).
+DEVICES = {}
 
 
 def _upsert_device(hwid, nombre="", email=""):
@@ -37,10 +15,8 @@ def _upsert_device(hwid, nombre="", email=""):
     if not normalized_hwid:
         return None
 
-    db = _load_db()
-    devices = db["devices"]
     now = datetime.utcnow().isoformat()
-    device = devices.get(normalized_hwid)
+    device = DEVICES.get(normalized_hwid)
 
     if device is None:
         device = {
@@ -52,15 +28,13 @@ def _upsert_device(hwid, nombre="", email=""):
             "created_at": now,
             "last_seen": now,
         }
-        devices[normalized_hwid] = device
+        DEVICES[normalized_hwid] = device
     else:
         device["last_seen"] = now
         if nombre:
             device["nombre"] = nombre.strip()
         if email:
             device["email"] = email.strip()
-
-    _save_db(db)
     return device
 
 
@@ -143,9 +117,8 @@ def protocol_verify(hwid):
 
 @app.route("/admin", methods=["GET"])
 def admin_panel():
-    db = _load_db()
     rows = sorted(
-        db["devices"].values(),
+        DEVICES.values(),
         key=lambda row: row.get("last_seen", ""),
         reverse=True,
     )
@@ -204,23 +177,20 @@ def admin_panel():
 
 @app.route("/admin", methods=["POST"])
 def admin_action():
-    db = _load_db()
-    devices = db["devices"]
     hwid = (request.form.get("hwid") or "").strip()
     action = (request.form.get("action") or "").strip().lower()
 
-    if hwid in devices:
+    if hwid in DEVICES:
         if action == "accept":
-            devices[hwid]["authorized"] = True
-            devices[hwid]["status"] = "aprobado"
+            DEVICES[hwid]["authorized"] = True
+            DEVICES[hwid]["status"] = "aprobado"
         elif action == "reject":
-            devices[hwid]["authorized"] = False
-            devices[hwid]["status"] = "pendiente"
-        devices[hwid]["updated_at"] = datetime.utcnow().isoformat()
-        _save_db(db)
+            DEVICES[hwid]["authorized"] = False
+            DEVICES[hwid]["status"] = "pendiente"
+        DEVICES[hwid]["updated_at"] = datetime.utcnow().isoformat()
 
     return redirect(url_for("admin_panel"))
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=5000)
