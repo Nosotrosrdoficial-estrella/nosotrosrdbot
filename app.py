@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -6,15 +6,15 @@ CORS(app)
 
 
 @app.route('/')
-def health():
-    return jsonify({"status": "online"})
+def home():
+    return jsonify({
+        "status": "online",
+        "message": "SENTINEL CORE v1.0 ACTIVE"
+    })
 
 
 @app.route('/validate', methods=['POST'])
-def validate_hardware():
-    payload = request.get_json(silent=True) or {}
-    hardware_id = payload.get("hardware_id")
-    return jsonify({
-        "authorized": True,
-        "hardware_id": hardware_id
-    })
+def validate():
+    return jsonify({"authorized": True})
+
+# No pongas nada mas debajo de esta linea
