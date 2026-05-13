@@ -5,30 +5,29 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Llave de seguridad Sentinel
+# La llave única de Nosotros RD
 ACCESS_KEY = "Diosamor"
 
 @app.route('/')
 def home():
-    return "Servidor Nosotros RD Operativo y Protegido", 200
+    return "SENTINEL CORE: ESPERANDO LLAVE", 200
 
-@app.route('/conectar', methods=['POST'])
-def conectar():
+@app.route('/login', methods=['POST'])
+def login():
     data = request.get_json()
     
-    # Validación de seguridad
-    if not data or data.get("key") != ACCESS_KEY:
-        return jsonify({"status": "error", "message": "Acceso Denegado"}), 403
-    
-    # Si la clave es correcta
-    return jsonify({
-        "status": "success", 
-        "message": "Conexión establecida con Nosotros RD",
-        "encriptacion": "Sentinel Active"
-    }), 200
+    # Verificación simple: ¿Es la llave correcta?
+    if data and data.get("key") == ACCESS_KEY:
+        return jsonify({
+            "acceso": "CONFIRMADO",
+            "mensaje": "Bienvenido al Sistema Nosotros RD"
+        }), 200
+    else:
+        return jsonify({
+            "acceso": "DENEGADO",
+            "mensaje": "Llave de seguridad incorrecta"
+        }), 403
 
-if __name__ == "__main__": 
-    import os
-    # Render usa la variable de entorno PORT
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
