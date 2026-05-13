@@ -10,7 +10,7 @@ version = 1.0
 source.main = BOT_CORE/main.py
 
 # Requerimientos
-requirements = python3,kivy,kivymd,requests,pillow,numpy,kivy_garden.mapview,pyjnius,plyer
+requirements = python3,kivy,kivymd,requests,pillow,numpy,kivy_garden.mapview,pyjnius,plyer,pyttsx3,playsound
 
 # Orientación
 orientation = portrait

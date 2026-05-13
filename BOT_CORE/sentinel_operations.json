@@ -1,0 +1,7 @@
+{
+  "precio_minimo_viaje": 100.0,
+  "precio_por_km": 2.5,
+  "radio_visibilidad_km": 8.0,
+  "regla_1km_cada_10km": true,
+  "ultima_actualizacion": "2026-04-19T12:35:39.693713"
+}

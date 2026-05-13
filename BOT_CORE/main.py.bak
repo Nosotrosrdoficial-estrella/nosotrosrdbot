@@ -1,0 +1,493 @@
+"""
+SENTINEL CORE v1.0
+Advanced Configuration Interface with KivyMD
+Industrial-Grade Security & Monitoring System
+"""
+import requests
+import threading
+import time
+import uiautomator2 as u2
+import adbutils
+import json
+import os
+import sys
+import base64
+import logging
+import uuid
+
+# Kivy & KivyMD Imports
+from kivy.app import App
+from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.label import Label
+from kivy.uix.image import Image
+from kivy.clock import Clock
+from kivy.core.window import Window
+
+from kivymd.app import MDApp
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivymd.uix.gridlayout import MDGridLayout
+from kivymd.uix.label import MDLabel
+from kivymd.uix.button import MDRaisedButton, MDFlatButton, MDFloatingActionButton
+from kivymd.uix.card import MDCard
+from kivy.uix.switch import Switch
+from kivy.uix.progressbar import ProgressBar
+from kivy.uix.textinput import TextInput
+from kivy.uix.popup import Popup
+
+# Configuración avanzada
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config_advanced import advanced_config
+from endpoint_obfuscator import EndpointObfuscator
+
+# ================================================================
+# COLORES PROFESIONALES - Deep Blue + Cyan Neón + Lima Brillante
+# ================================================================
+COLORS = {
+    "deep_blue": (0.059, 0.094, 0.165, 1),      # #0f172a
+    "cyan_neon": (0.024, 0.714, 0.835, 1),      # #06b6d4
+    "lima_bright": (0.639, 0.902, 0.208, 1),    # #a3e635
+    "dark_bg": (0.04, 0.05, 0.08, 1),           # #0a0d14
+    "white": (1, 1, 1, 1),
+    "red_error": (0.9, 0.2, 0.2, 1),
+    "gray_text": (0.7, 0.7, 0.7, 1),
+}
+
+# ================================================================
+# CONFIGURACIÓN KIVY
+# ================================================================
+Window.size = (720, 1280)
+Window.softinput_mode = "pan"
+
+# Endpoints SVP (Subscription Validation Protocol)
+SVP_ENDPOINT = "/validar/"
+SUSCRIPCIONES_ENDPOINT = "/suscripciones"
+REGISTRO_ENDPOINT = "/registro_cliente"
+VERIFICAR_REG_ENDPOINT = "/verificar_registro/"
+MENSAJE_ENDPOINT = "/mensaje"
+SESSION_FILE = "sentinel_session.json"
+
+# ================================================================
+# FUNCIONES DE OBFUSCACIÓN
+# ================================================================
+def get_primary_endpoint():
+    """Obtiene el endpoint primario deobfuscado."""
+    return EndpointObfuscator.decode_endpoint("local_dev")
+
+def get_backup_endpoint():
+    """Obtiene el endpoint de backup."""
+    return EndpointObfuscator.decode_endpoint("render_prod")
+
+def build_validation_urls(hwid):
+    """Construye URLs de validación con endpoints obfuscados."""
+    primary = get_primary_endpoint()
+    backup = get_backup_endpoint()
+    endpoint = SVP_ENDPOINT.strip("/")
+    return [f"{primary}/{endpoint}/{hwid}", f"{backup}/{endpoint}/{hwid}"]
+
+def build_registration_urls():
+    """Construye URLs de registro."""
+    primary = get_primary_endpoint()
+    backup = get_backup_endpoint()
+    return [f"{primary}{REGISTRO_ENDPOINT}", f"{backup}{REGISTRO_ENDPOINT}"]
+
+def build_subscription_urls():
+    """Construye URLs de suscriptores."""
+    primary = get_primary_endpoint()
+    backup = get_backup_endpoint()
+    return [f"{primary}{SUSCRIPCIONES_ENDPOINT}", f"{backup}{SUSCRIPCIONES_ENDPOINT}"]
+
+# ================================================================
+# FUNCIONES SVP
+# ================================================================
+def get_device_id():
+    """Obtiene HWID único del dispositivo."""
+    try:
+        from jnius import autoclass
+        Settings = autoclass('android.provider.Settings$Secure')
+        context = autoclass('org.kivy.android.PythonActivity').mActivity
+        return Settings.getString(context.getContentResolver(), Settings.ANDROID_ID)
+    except Exception:
+        import uuid
+        return str(uuid.getnode())
+
+def cargar_sesion():
+    """Carga datos de sesión guardados."""
+    try:
+        if os.path.exists(SESSION_FILE):
+            with open(SESSION_FILE, 'r') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+def guardar_sesion(data: dict):
+    """Persiste datos de sesión."""
+    try:
+        with open(SESSION_FILE, 'w') as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+def svp_verificar(hwid, nombre_socio=None):
+    """Subscription Validation Protocol — Verifica acceso."""
+    last_error = "Sin respuesta del servidor"
+    for url in build_validation_urls(hwid):
+        try:
+            params = {}
+            if nombre_socio:
+                params['nombre'] = nombre_socio
+            response = requests.get(url, params=params, timeout=10)
+            if not response.ok:
+                continue
+            try:
+                data = response.json()
+            except ValueError:
+                continue
+            
+            status = str(data.get("status", "")).strip().lower()
+            access = str(data.get("access", "")).strip().lower()
+            payment_ok = data.get("payment_status", False)
+            vence = data.get("vence")
+            
+            if not payment_ok:
+                return False, "Licencia pendiente.", vence
+            
+            if access == "granted" or status == "aprobado":
+                return True, f"Acceso Activo hasta: {vence}", vence
+            
+            if status == "expirado":
+                return False, "Licencia expirada.", vence
+            
+            if status in ("bloqueado", "blocked"):
+                return False, "Nodo bloqueado.", vence
+            
+            return False, "Pendiente de activación.", None
+        except Exception as e:
+            last_error = str(e)
+    
+    return False, f"Error conexión: {last_error}", None
+
+def obtener_suscripciones():
+    """Obtiene lista de suscriptores."""
+    for url in build_subscription_urls():
+        try:
+            response = requests.get(url, timeout=10)
+            if response.ok:
+                data = response.json()
+                return data.get('suscripciones', []), None
+        except Exception:
+            pass
+    return [], "Sin conexión"
+
+def svp_registro(hwid, nombre, email):
+    """Registra nuevo nodo operacional."""
+    payload = {'hwid': hwid, 'nombre': nombre, 'email': email}
+    for url in build_registration_urls():
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            if response.ok:
+                return response.json(), None
+        except Exception:
+            pass
+    return None, "Sin conexión"
+
+def svp_verificar_registro(hwid):
+    """Verifica si el nodo está registrado."""
+    for url in [f"{get_primary_endpoint()}{VERIFICAR_REG_ENDPOINT}{hwid}",
+                f"{get_backup_endpoint()}{VERIFICAR_REG_ENDPOINT}{hwid}"]:
+        try:
+            response = requests.get(url, timeout=10)
+            if response.ok:
+                return response.json(), None
+        except Exception:
+            pass
+    return None, "Sin conexión"
+
+def enviar_mensaje(hwid, nombre_socio, contenido):
+    """Envía mensaje al panel."""
+    payload = {'hwid': hwid, 'nombre_socio': nombre_socio, 'contenido': contenido}
+    for url in [f"{get_primary_endpoint()}{MENSAJE_ENDPOINT}",
+                f"{get_backup_endpoint()}{MENSAJE_ENDPOINT}"]:
+        try:
+            response = requests.post(url, json=payload, timeout=10)
+            if response.ok:
+                return True, "Mensaje enviado."
+        except Exception:
+            pass
+    return False, "Error al enviar mensaje."
+
+# ================================================================
+# SCREENS (PANTALLAS KivyMD)
+# ================================================================
+
+class InitializationScreen(MDScreen):
+    """Pantalla de Inicialización del Sentinel Core."""
+    
+    def on_enter(self):
+        self.manager.app.check_registration()
+
+class KYCRegistrationScreen(MDScreen):
+    """Pantalla de Registro KYC."""
+    pass
+
+class OperationalScreen(MDScreen):
+    """Pantalla Principal del Operational Node."""
+    pass
+
+class AdvancedConfigScreen(MDScreen):
+    """Pantalla de Configuración Avanzada."""
+    pass
+
+class MonitoringScreen(MDScreen):
+    """Pantalla de Monitoreo en Tiempo Real."""
+    pass
+
+# ================================================================
+# APLICACIÓN PRINCIPAL
+# ================================================================
+
+class SentinelCoreApp(MDApp):
+    """Sentinel Core v1.0 — Advanced Configuration Interface"""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.title = "SENTINEL CORE v1.0"
+        self.hwid = get_device_id()
+        self.selected_instance = None
+        self.sentinel_active = False
+        
+    def build(self):
+        """Construye la interfaz principal."""
+        self.theme_cls.primary_palette = "Blue"
+        self.theme_cls.accent_palette = "Cyan"
+        self.theme_cls.theme_style = "Dark"
+        
+        # Screen Manager
+        self.sm = MDScreenManager()
+        
+        # Build screens
+        self.init_screen = InitializationScreen(name='init')
+        self.kyc_screen = KYCRegistrationScreen(name='kyc')
+        self.operational_screen = self._build_operational_screen()
+        self.config_screen = AdvancedConfigScreen(name='config')
+        self.monitoring_screen = MonitoringScreen(name='monitoring')
+        
+        self.sm.add_widget(self.init_screen)
+        self.sm.add_widget(self.kyc_screen)
+        self.sm.add_widget(self.operational_screen)
+        self.sm.add_widget(self.config_screen)
+        self.sm.add_widget(self.monitoring_screen)
+        
+        return self.sm
+    
+    def _build_operational_screen(self):
+        """Construye la pantalla operacional con KivyMD."""
+        screen = MDScreen(name='operational')
+        layout = MDBoxLayout(orientation='vertical', padding=10, spacing=10)
+        
+        # Header con logo y título
+        header_layout = MDBoxLayout(orientation='horizontal', size_hint_y=0.12, spacing=10)
+        
+        # Icono de planeta (simulado con círculo)
+        planet_widget = FloatLayout()
+        planet_widget.canvas.before.clear()
+        with planet_widget.canvas.before:
+            from kivy.graphics import Color, Ellipse
+            Color(*COLORS["cyan_neon"])
+            Ellipse(pos=planet_widget.pos, size=(40, 40))
+        header_layout.add_widget(planet_widget)
+        
+        # Título
+        title_label = MDLabel(
+            text="SENTINEL CORE",
+            font_style="H6",
+            theme_text_color="Custom",
+            text_color=COLORS["lima_bright"],
+            bold=True
+        )
+        header_layout.add_widget(title_label)
+        
+        layout.add_widget(header_layout)
+        
+        # Status Monitor Card
+        status_card = MDCard(
+            orientation='vertical',
+            padding=15,
+            spacing=5,
+            size_hint_y=0.25,
+            md_bg_color=COLORS["deep_blue"],
+            elevation=2
+        )
+        
+        status_card.add_widget(MDLabel(
+            text="📊 ESTADO DEL NODO",
+            theme_text_color="Custom",
+            text_color=COLORS["cyan_neon"],
+            bold=True,
+            font_size="14sp"
+        ))
+        
+        self.status_license = MDLabel(
+            text="🟢 Licencia: ACTIVA",
+            theme_text_color="Custom",
+            text_color=COLORS["lima_bright"]
+        )
+        status_card.add_widget(self.status_license)
+        
+        self.status_latency = MDLabel(
+            text="⏱ Latencia: 45ms",
+            theme_text_color="Custom",
+            text_color=COLORS["cyan_neon"]
+        )
+        status_card.add_widget(self.status_latency)
+        
+        self.status_uptime = MDLabel(
+            text="⬆ Uptime: 2h 15m",
+            theme_text_color="Custom",
+            text_color=COLORS["gray_text"]
+        )
+        status_card.add_widget(self.status_uptime)
+        
+        layout.add_widget(status_card)
+        
+        # Main Actions Grid
+        actions_grid = MDGridLayout(rows=2, cols=2, spacing=10, size_hint_y=0.35, padding=5)
+        
+        # Botón Iniciar Sentinel
+        start_btn = MDRaisedButton(
+            text="▶ INICIAR SENTINEL",
+            size_hint=(0.5, 0.3),
+            md_bg_color=COLORS["lima_bright"],
+            text_color=COLORS["deep_blue"],
+            font_size="12sp",
+            bold=True
+        )
+        start_btn.bind(on_press=self.start_sentinel)
+        actions_grid.add_widget(start_btn)
+        
+        # Botón Bandeja de Salida
+        outbox_btn = MDRaisedButton(
+            text="📬 BANDEJA",
+            size_hint=(0.5, 0.3),
+            md_bg_color=COLORS["cyan_neon"],
+            text_color=COLORS["deep_blue"],
+            font_size="12sp",
+            bold=True
+        )
+        outbox_btn.bind(on_press=self.show_outbox)
+        actions_grid.add_widget(outbox_btn)
+        
+        # Botón Actualizaciones
+        update_btn = MDRaisedButton(
+            text="🔄 ACTUALIZACIONES",
+            size_hint=(0.5, 0.3),
+            md_bg_color=COLORS["cyan_neon"],
+            text_color=COLORS["deep_blue"],
+            font_size="12sp",
+            bold=True
+        )
+        update_btn.bind(on_press=self.check_updates)
+        actions_grid.add_widget(update_btn)
+        
+        # Botón Monitoreo
+        monitor_btn = MDRaisedButton(
+            text="📈 MONITOREO",
+            size_hint=(0.5, 0.3),
+            md_bg_color=COLORS["lima_bright"],
+            text_color=COLORS["deep_blue"],
+            font_size="12sp",
+            bold=True
+        )
+        monitor_btn.bind(on_press=self.show_monitoring)
+        actions_grid.add_widget(monitor_btn)
+        
+        layout.add_widget(actions_grid)
+        
+        # FAB Botón de Configuración (compatible con KivyMD 1.2.0)
+        fab_button = MDFloatingActionButton(
+            icon="cog",
+            pos_hint={"right": 0.95, "bottom": 0.05},
+            md_bg_color=(0.05, 0.7, 0.9, 1)
+        )
+        fab_button.bind(on_press=lambda x: self.show_advanced_config())
+        layout.add_widget(fab_button)
+        screen.add_widget(layout)
+        
+        return screen
+    
+    def check_registration(self):
+        """Verifica si el dispositivo está registrado."""
+        def _check():
+            reg_data, err = svp_verificar_registro(self.hwid)
+            if reg_data and reg_data.get('registrado'):
+                Clock.schedule_once(lambda dt: self._go_to_operational(), 0)
+            else:
+                Clock.schedule_once(lambda dt: self._go_to_kyc(), 0)
+        
+        threading.Thread(target=_check, daemon=True).start()
+    
+    def _go_to_operational(self):
+        """Navega a la pantalla operacional."""
+        self.sm.current = 'operational'
+    
+    def _go_to_kyc(self):
+        """Navega a la pantalla KYC."""
+        self.sm.current = 'kyc'
+    
+    def start_sentinel(self, instance):
+        """Inicia la lógica del Sentinel Core."""
+        Snackbar(text="Iniciando Sentinel Core...").open()
+        self.sentinel_active = True
+    
+    def show_outbox(self, instance):
+        """Muestra la bandeja de salida."""
+        Snackbar(text="Abriendo bandeja de salida...").open()
+    
+    def check_updates(self, instance):
+        """Verifica actualizaciones del sistema."""
+        def _check():
+            try:
+                url = f"{get_primary_endpoint()}/version"
+                response = requests.get(url, timeout=5)
+                if response.ok:
+                    data = response.json()
+                    current = "1.0"
+                    latest = data.get("version", current)
+                    
+                    msg = f"✓ Sistema actualizado a v{latest}" if latest == current else f"⚠ Nueva versión disponible: v{latest}"
+                    Clock.schedule_once(lambda dt: Snackbar(text=msg).open(), 0)
+            except Exception as e:
+                Clock.schedule_once(lambda dt: Snackbar(text=f"Error: {e}").open(), 0)
+        
+        threading.Thread(target=_check, daemon=True).start()
+    
+    def show_monitoring(self, instance):
+        """Muestra el panel de monitoreo."""
+        self.sm.current = 'monitoring'
+        self._update_monitoring_data()
+    
+    def _update_monitoring_data(self):
+        """Actualiza datos de monitoreo."""
+        status = advanced_config.get_status()
+        
+        # Actualizar labels en pantalla operacional
+        if status.get('last_latency'):
+            self.status_latency.text = f"⏱ Latencia: {status['last_latency']}ms"
+        
+        if status.get('uptime_seconds'):
+            hours = status['uptime_seconds'] // 3600
+            mins = (status['uptime_seconds'] % 3600) // 60
+            self.status_uptime.text = f"⬆ Uptime: {hours}h {mins}m"
+
+
+# ================================================================
+# ENTRY POINT
+# ================================================================
+
+if __name__ == "__main__":
+    logging.basicConfig(filename='sentinel.log', level=logging.INFO)
+    app = SentinelCoreApp()
+    app.run()

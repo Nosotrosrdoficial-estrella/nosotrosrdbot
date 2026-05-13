@@ -4,6 +4,7 @@ Arquitectura final:
 - Drawer lateral con Panel, Configuracion local, Registro, Conexion y Viaje activo
 - Portero Key-Only (solo valida HWID contra Render)
 - Operacion local por socio (sin envio de tarifas al servidor)
+- Soporte de voz y audio
 """
 
 import base64
@@ -28,6 +29,28 @@ from kivy.properties import ColorProperty, NumericProperty, StringProperty
 from kivy.utils import platform
 from kivy.uix.widget import Widget
 from kivymd.app import MDApp
+
+# Módulos de voz y audio
+try:
+    import pyttsx3
+    TTS_DISPONIBLE = True
+except ImportError:
+    TTS_DISPONIBLE = False
+
+try:
+    from playsound import playsound
+    AUDIO_DISPONIBLE = True
+except ImportError:
+    AUDIO_DISPONIBLE = False
+
+# Inicializar TTS si está disponible
+if TTS_DISPONIBLE:
+    try:
+        tts_engine = pyttsx3.init()
+        tts_engine.setProperty('rate', 150)
+        tts_engine.setProperty('volume', 0.9)
+    except Exception:
+        TTS_DISPONIBLE = False
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.card import MDCard
 from kivymd.uix.dialog import MDDialog
@@ -82,6 +105,50 @@ DEFAULT_OPERATIONS = {
 }
 
 WAIT_RATE_PER_MIN = 1.8  # fallback
+
+# Funciones de voz y audio
+def hablar(texto, es_asincronico=True):
+    """
+    Reproduce un texto con síntesis de voz.
+    
+    Args:
+        texto: El texto a reproducir
+        es_asincronico: Si True, se ejecuta en un hilo separado
+    """
+    if not TTS_DISPONIBLE:
+        return
+    
+    def _reproducir():
+        try:
+            tts_engine.say(texto)
+            tts_engine.runAndWait()
+        except Exception as e:
+            print(f"Error de TTS: {e}")
+    
+    if es_asincronico:
+        hilo = threading.Thread(target=_reproducir, daemon=True)
+        hilo.start()
+    else:
+        _reproducir()
+
+def reproducir_sonido(ruta_archivo):
+    """
+    Reproduce un archivo de audio.
+    
+    Args:
+        ruta_archivo: Ruta al archivo de audio (.mp3, .wav, etc)
+    """
+    if not AUDIO_DISPONIBLE or not os.path.exists(ruta_archivo):
+        return
+    
+    def _reproducir():
+        try:
+            playsound(ruta_archivo)
+        except Exception as e:
+            print(f"Error de audio: {e}")
+    
+    hilo = threading.Thread(target=_reproducir, daemon=True)
+    hilo.start()
 
 KV = """
 #:import dp kivy.metrics.dp

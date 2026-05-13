@@ -1,0 +1,9 @@
+{
+    "tarifa_por_km": 2.5,
+    "tarifa_base": 5.0,
+    "multiplicador_nocturno": 1.5,
+    "banco_km": 0.0,
+    "zonas_favoritas": [],
+    "zonas_bloqueadas": [],
+    "modo_simulacion": false
+}
