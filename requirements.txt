@@ -1,5 +1,7 @@
 flask
 flask-cors
+flask-login
+flask-wtf
 gunicorn
 requests
 kivy
@@ -14,4 +16,6 @@ numpy
 pillow
 python-dotenv
 psutil
+email-validator
+bcrypt
 

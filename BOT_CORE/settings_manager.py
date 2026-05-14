@@ -127,7 +127,7 @@ class SettingsManager:
             "seguridad": {
                 "encriptacion_habilitada": True,
                 "validar_contra_render": True,
-                "endpoint_render": "https://atm-admin-8-qlu5.onrender.com",
+                "endpoint_render": "https://tu-app-nosotrosrdbot.onrender.com",
                 "access_key": "Diosamor",
                 "auto_reconectar": True,
                 "timeout_conexion": 10,

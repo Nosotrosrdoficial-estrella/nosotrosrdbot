@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notificaciones - NOSOTROS RD</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #00ff41;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2em;
+            letter-spacing: 5px;
+        }
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+        .back-link a {
+            color: #00ff41;
+            text-decoration: none;
+            border: 1px solid #00ff41;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+        .back-link a:hover {
+            background-color: #00ff41;
+            color: #050505;
+        }
+        .notification-form {
+            border: 2px solid #00ff41;
+            padding: 30px;
+            border-radius: 5px;
+            box-shadow: 0 0 15px #00ff41;
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            background-color: #111;
+            border: 1px solid #00ff41;
+            color: #00ff41;
+            border-radius: 3px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        input[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            background-color: #00ff41;
+            border: none;
+            color: #050505;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+        input[type="submit"]:hover {
+            background-color: #00cc33;
+        }
+        .alert {
+            color: #00ff41;
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #00ff41;
+            border-radius: 3px;
+        }
+        .error {
+            color: #ff4444;
+            border-color: #ff4444;
+        }
+        .notifications-history {
+            border: 2px solid #00ff41;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #00ff41;
+        }
+        .notifications-history h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+        .notification-item {
+            border: 1px solid #333;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+        }
+        .notification-item h3 {
+            margin: 0 0 10px 0;
+            color: #00ff41;
+        }
+        .notification-meta {
+            font-size: 0.8em;
+            color: #ccc;
+            margin-bottom: 10px;
+        }
+        .notification-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+        .type-alerta { background-color: #ff4444; color: #fff; }
+        .type-oferta { background-color: #ffa500; color: #000; }
+        .type-descuento { background-color: #00ff41; color: #000; }
+    </style>
+</head>
+<body>
+    <div class="back-link">
+        <a href="{{ url_for('admin_dashboard') }}">← Volver al Dashboard</a>
+    </div>
+
+    <div class="header">
+        <h1>SISTEMA DE NOTIFICACIONES</h1>
+        <p>Envía alertas, ofertas y descuentos a tus usuarios</p>
+    </div>
+
+    <div class="notification-form">
+        <h2>Enviar Nueva Notificación</h2>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert">
+                    {% for message in messages %}
+                        {{ message }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                {{ form.titulo.label }}
+                {{ form.titulo() }}
+            </div>
+            <div class="form-group">
+                {{ form.tipo.label }}
+                {{ form.tipo() }}
+            </div>
+            <div class="form-group">
+                {{ form.mensaje.label }}
+                {{ form.mensaje() }}
+            </div>
+            {{ form.submit() }}
+        </form>
+    </div>
+
+    <div class="notifications-history">
+        <h2>Historial de Notificaciones</h2>
+
+        {% if notifications %}
+            {% for notif_id, notif in notifications.items() %}
+            <div class="notification-item">
+                <h3>{{ notif.titulo }}</h3>
+                <div class="notification-meta">
+                    <span class="notification-type type-{{ notif.tipo }}">{{ notif.tipo|title }}</span>
+                    Enviada: {{ notif.fecha[:10] if notif.fecha else 'N/A' }}
+                    | Destinatarios: {{ notif.enviados|length }}
+                </div>
+                <p>{{ notif.mensaje }}</p>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="text-align: center; color: #ccc;">No se han enviado notificaciones aún.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
