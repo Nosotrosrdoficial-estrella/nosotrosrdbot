@@ -1,9 +1,8 @@
 import os
 import json
-import bcrypt
 import smtplib
 from email.mime.text import MIMEText
-from datetime import datetime, timedelta
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template, redirect, url_for, flash, session
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -14,7 +13,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = 'nosotros_rd_sentinel_2026'
+# Usar variable de entorno para seguridad, o una por defecto fija
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'nosotros_rd_sentinel_2026')
 app.config['WTF_CSRF_ENABLED'] = True
 
 # Configuración de Flask-Login
@@ -22,19 +22,19 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
-# Raíz del proyecto para rutas de archivos JSON
+# Rutas de persistencia para Render (/opt/render/project/src/...)
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(ROOT_DIR, 'admin_db.json')
 USERS_FILE = os.path.join(ROOT_DIR, 'users_db.json')
 NOTIFICATIONS_FILE = os.path.join(ROOT_DIR, 'notifications_db.json')
 
-# Configuración de email para notificaciones
+# Configuración de email (Variables de entorno recomendadas)
 SMTP_SERVER = 'smtp.gmail.com'
 SMTP_PORT = 587
-SMTP_USER = os.environ.get('SMTP_USER', 'tu_correo@gmail.com')
+SMTP_USER = os.environ.get('SMTP_USER', 'tu_email@gmail.com')
 SMTP_PASS = os.environ.get('SMTP_PASS', 'tu_app_password')
 
-# Modelo de Usuario Admin
+# --- MODELOS ---
 class AdminUser(UserMixin):
     def __init__(self, id, email, password_hash, created_at):
         self.id = id
@@ -42,70 +42,36 @@ class AdminUser(UserMixin):
         self.password_hash = password_hash
         self.created_at = created_at
 
-# Modelo de Usuario del Bot
-class BotUser:
-    def __init__(self, user_id, email, nombre, telefono, plan, estado, fecha_registro, tiempo_uso, ultimo_acceso):
-        self.user_id = user_id
-        self.email = email
-        self.nombre = nombre
-        self.telefono = telefono
-        self.plan = plan
-        self.estado = estado  # 'pendiente', 'aprobado', 'denegado', 'suspendido'
-        self.fecha_registro = fecha_registro
-        self.tiempo_uso = tiempo_uso  # en minutos
-        self.ultimo_acceso = ultimo_acceso
-
-# Funciones de base de datos
+# --- PERSISTENCIA CORREGIDA ---
 def load_db(file_path):
     try:
         if not os.path.exists(file_path):
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump({}, f)
             return {}
-
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read().strip()
-            if not content:
-                return {}
-            return json.loads(content)
-    except (json.JSONDecodeError, IOError, OSError) as e:
-        print(f"Advertencia: no se pudo cargar {file_path}: {e}")
+            return json.loads(content) if content else {}
+    except Exception as e:
+        print(f"Aviso: DB vacía o error en {file_path}: {e}")
         return {}
 
 def save_db(file_path, data):
     try:
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4)
-    except (IOError, OSError) as e:
-        print(f"Error guardando {file_path}: {e}")
-
-def load_admin_users():
-    return load_db(DB_FILE)
-
-def save_admin_users(users):
-    save_db(DB_FILE, users)
-
-def load_bot_users():
-    return load_db(USERS_FILE)
-
-def save_bot_users(users):
-    save_db(USERS_FILE, users)
-
-def load_notifications():
-    return load_db(NOTIFICATIONS_FILE)
-
-def save_notifications(notifs):
-    save_db(NOTIFICATIONS_FILE, notifs)
+    except Exception as e:
+        print(f"Error crítico guardando {file_path}: {e}")
 
 @login_manager.user_loader
 def load_user(user_id):
-    users = load_admin_users()
-    user_data = users.get(user_id)
-    if user_data:
-        return AdminUser(user_id, user_data['email'], user_data['password_hash'], user_data['created_at'])
+    users = load_db(DB_FILE)
+    u = users.get(str(user_id))
+    if u:
+        return AdminUser(user_id, u['email'], u['password_hash'], u['created_at'])
     return None
 
-# Formularios
+# --- FORMULARIOS ---
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Contraseña', validators=[DataRequired()])
@@ -123,250 +89,99 @@ class NotificationForm(FlaskForm):
     tipo = SelectField('Tipo', choices=[('alerta', 'Alerta'), ('oferta', 'Oferta'), ('descuento', 'Descuento')])
     submit = SubmitField('Enviar Notificación')
 
-# Funciones auxiliares
+# --- FUNCIONES AUXILIARES ---
 def send_email(to_email, subject, body):
+    # Si no hay credenciales, no rompe el servidor, solo avisa
+    if SMTP_USER == 'tu_email@gmail.com' or not SMTP_PASS:
+        print("DEBUG: Email no enviado (Faltan credenciales reales)")
+        return False
     try:
-        if not SMTP_USER or not SMTP_PASS:
-            print("Advertencia: credenciales SMTP no configuradas, omitiendo envío de correo.")
-            return False
-
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = SMTP_USER
         msg['To'] = to_email
-
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, to_email, msg.as_string())
-        server.quit()
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, to_email, msg.as_string())
         return True
-    except smtplib.SMTPAuthenticationError as e:
-        print(f"Error SMTP de autenticación: {e}")
-        return False
     except Exception as e:
-        print(f"Error enviando email: {e}")
+        print(f"Error SMTP: {e}")
         return False
 
-def get_user_stats():
-    users = load_bot_users()
-    total = len(users)
-    aprobados = sum(1 for u in users.values() if u['estado'] == 'aprobado')
-    pendientes = sum(1 for u in users.values() if u['estado'] == 'pendiente')
-    denegados = sum(1 for u in users.values() if u['estado'] == 'denegado')
-    tiempo_total = sum(u.get('tiempo_uso', 0) for u in users.values())
-    return {
-        'total': total,
-        'aprobados': aprobados,
-        'pendientes': pendientes,
-        'denegados': denegados,
-        'tiempo_total_minutos': tiempo_total,
-        'tiempo_total_horas': round(tiempo_total / 60, 2)
-    }
-
-# Rutas públicas (para el bot)
+# --- RUTAS PÚBLICAS / API BOT ---
 @app.route('/')
 def home():
     return render_template('home.html')
 
-@app.route('/ping')
-def ping():
-    return jsonify({"status": "online", "service": "NOSOTROS RD Sentinel"})
-
 @app.route('/register_user', methods=['POST'])
 def register_user():
     data = request.get_json()
-    if not data:
-        return jsonify({"error": "Datos requeridos"}), 400
+    if not data or not data.get('user_id'):
+        return jsonify({"error": "user_id requerido"}), 400
+    
+    users = load_db(USERS_FILE)
+    uid = str(data.get('user_id'))
+    
+    if uid in users:
+        return jsonify({"error": "Ya registrado"}), 409
 
-    user_id = data.get('user_id')
-    email = data.get('email')
-    nombre = data.get('nombre', '')
-    telefono = data.get('telefono', '')
-    plan = data.get('plan', '1 Mes')
-
-    if not user_id or not email:
-        return jsonify({"error": "user_id y email requeridos"}), 400
-
-    users = load_bot_users()
-    if user_id in users:
-        return jsonify({"error": "Usuario ya registrado"}), 409
-
-    users[user_id] = {
-        'user_id': user_id,
-        'email': email,
-        'nombre': nombre,
-        'telefono': telefono,
-        'plan': plan,
+    users[uid] = {
+        'user_id': uid,
+        'email': data.get('email', ''),
+        'nombre': data.get('nombre', 'Socio'),
+        'telefono': data.get('telefono', ''),
+        'plan': data.get('plan', 'Estándar'),
         'estado': 'pendiente',
         'fecha_registro': datetime.now().isoformat(),
-        'tiempo_uso': 0,
-        'ultimo_acceso': None
+        'tiempo_uso': 0
     }
-    save_bot_users(users)
+    save_db(USERS_FILE, users)
+    return jsonify({"success": True, "message": "Registro pendiente"})
 
-    return jsonify({"success": True, "message": "Usuario registrado, pendiente de aprobación"})
-
-@app.route('/login_user', methods=['POST'])
-def login_user():
-    data = request.get_json()
-    user_id = data.get('user_id')
-
-    users = load_bot_users()
-    user = users.get(user_id)
-
-    if not user:
-        return jsonify({"error": "Usuario no encontrado"}), 404
-
-    if user['estado'] != 'aprobado':
-        return jsonify({"error": "Usuario no aprobado"}), 403
-
-    # Actualizar último acceso y tiempo de uso
-    user['ultimo_acceso'] = datetime.now().isoformat()
-    user['tiempo_uso'] += 1  # Simular 1 minuto por login
-    save_bot_users(users)
-
-    return jsonify({"success": True, "user": user})
-
-@app.route('/support_request', methods=['POST'])
-def support_request():
-    data = request.get_json()
-    user_id = data.get('user_id')
-    issue = data.get('issue')
-
-    if not user_id or not issue:
-        return jsonify({"error": "user_id e issue requeridos"}), 400
-
-    # Aquí podrías guardar el ticket de soporte
-    # Por ahora, solo loguear
-    print(f"Soporte solicitado por {user_id}: {issue}")
-
-    return jsonify({"success": True, "message": "Solicitud de soporte enviada"})
-
-# Rutas de admin
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    if current_user.is_authenticated:
-        return redirect(url_for('admin_dashboard'))
-
-    form = LoginForm()
-    if form.validate_on_submit():
-        users = load_admin_users()
-        user_data = None
-        for uid, udata in users.items():
-            if udata['email'] == form.email.data:
-                user_data = udata
-                user_id = uid
-                break
-
-        if user_data and check_password_hash(user_data['password_hash'], form.password.data):
-            user = AdminUser(user_id, user_data['email'], user_data['password_hash'], user_data['created_at'])
-            login_user(user)
-            return redirect(url_for('admin_dashboard'))
-        flash('Credenciales inválidas')
-
-    return render_template('admin_login.html', form=form)
-
+# --- RUTAS ADMIN ---
 @app.route('/admin/register', methods=['GET', 'POST'])
 def admin_register():
     if current_user.is_authenticated:
         return redirect(url_for('admin_dashboard'))
-
     form = RegisterForm()
     if form.validate_on_submit():
-        if form.password.data != form.confirm_password.data:
-            flash('Las contraseñas no coinciden')
+        users = load_db(DB_FILE)
+        if any(u['email'] == form.email.data for u in users.values()):
+            flash('Email ya existe')
             return render_template('admin_register.html', form=form)
-
-        users = load_admin_users()
-        # Verificar si ya existe
-        for udata in users.values():
-            if udata['email'] == form.email.data:
-                flash('Email ya registrado')
-                return render_template('admin_register.html', form=form)
-
-        # Crear usuario
-        user_id = str(len(users) + 1)
-        users[user_id] = {
+        
+        new_id = str(len(users) + 1)
+        users[new_id] = {
             'email': form.email.data,
             'password_hash': generate_password_hash(form.password.data),
             'created_at': datetime.now().isoformat()
         }
-        save_admin_users(users)
-
-        flash('Registro exitoso. Ahora puedes iniciar sesión.')
+        save_db(DB_FILE, users)
+        flash('¡Registro exitoso! Inicia sesión.')
         return redirect(url_for('admin_login'))
-
     return render_template('admin_register.html', form=form)
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    form = LoginForm()
+    if form.validate_on_submit():
+        users = load_db(DB_FILE)
+        for uid, udata in users.items():
+            if udata['email'] == form.email.data and check_password_hash(udata['password_hash'], form.password.data):
+                user = AdminUser(uid, udata['email'], udata['password_hash'], udata['created_at'])
+                login_user(user)
+                return redirect(url_for('admin_dashboard'))
+        flash('Credenciales incorrectas')
+    return render_template('admin_login.html', form=form)
 
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
-    users = load_bot_users()
-    stats = get_user_stats()
-    return render_template('admin_dashboard.html', users=users, stats=stats)
-
-@app.route('/admin/users')
-@login_required
-def admin_users():
-    users = load_bot_users()
-    return render_template('admin_users.html', users=users)
-
-@app.route('/admin/user/<user_id>/approve', methods=['POST'])
-@login_required
-def approve_user(user_id):
-    users = load_bot_users()
-    if user_id in users:
-        users[user_id]['estado'] = 'aprobado'
-        save_bot_users(users)
-        # Enviar email de aprobación
-        send_email(users[user_id]['email'], 'Cuenta Aprobada - NOSOTROS RD',
-                  f'Hola {users[user_id]["nombre"]},\n\nTu cuenta ha sido aprobada. Ya puedes usar el servicio.')
-    return redirect(url_for('admin_users'))
-
-@app.route('/admin/user/<user_id>/deny', methods=['POST'])
-@login_required
-def deny_user(user_id):
-    users = load_bot_users()
-    if user_id in users:
-        users[user_id]['estado'] = 'denegado'
-        save_bot_users(users)
-        # Enviar email de denegación
-        send_email(users[user_id]['email'], 'Cuenta Denegada - NOSOTROS RD',
-                  f'Hola {users[user_id]["nombre"]},\n\nTu solicitud de cuenta ha sido denegada.')
-    return redirect(url_for('admin_users'))
-
-@app.route('/admin/notifications', methods=['GET', 'POST'])
-@login_required
-def admin_notifications():
-    form = NotificationForm()
-    if form.validate_on_submit():
-        users = load_bot_users()
-        notifs = load_notifications()
-
-        notif_id = str(len(notifs) + 1)
-        notifs[notif_id] = {
-            'titulo': form.titulo.data,
-            'mensaje': form.mensaje.data,
-            'tipo': form.tipo.data,
-            'fecha': datetime.now().isoformat(),
-            'enviados': []
-        }
-
-        # Enviar a todos los usuarios aprobados
-        for user_id, user in users.items():
-            if user['estado'] == 'aprobado':
-                if send_email(user['email'], f'{form.titulo.data} - NOSOTROS RD', form.mensaje.data):
-                    notifs[notif_id]['enviados'].append(user_id)
-
-        save_notifications(notifs)
-        flash(f'Notificación enviada a {len(notifs[notif_id]["enviados"])} usuarios')
-
-    notifs = load_notifications()
-    return render_template('admin_notifications.html', form=form, notifications=notifs)
+    bot_users = load_db(USERS_FILE)
+    return render_template('admin_dashboard.html', users=bot_users)
 
 @app.route('/admin/logout')
-@login_required
 def admin_logout():
     logout_user()
     return redirect(url_for('admin_login'))
