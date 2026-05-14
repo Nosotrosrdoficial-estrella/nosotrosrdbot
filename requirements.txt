@@ -1,4 +1,17 @@
 flask
 flask-cors
 gunicorn
+requests
+kivy
+kivymd
+pyttsx3
+playsound
+easyocr
+uiautomator2
+adbutils
+mapview
+numpy
+pillow
+python-dotenv
+psutil
 

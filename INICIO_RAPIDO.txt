@@ -1,0 +1,403 @@
+"""
+GUÍA RÁPIDA DE INICIO - NOSOTROS RD Sentinel v3.0
+Instrucciones paso a paso para ejecutar el sistema
+"""
+
+# ============================================================================
+# GUÍA RÁPIDA DE INICIO
+# ============================================================================
+
+## 🚀 PRIMERA EJECUCIÓN (UNA SOLA VEZ)
+
+### Opción 1: Setup Automático Recomendado
+```bash
+cd "C:\Users\edwin\OneDrive\Desktop\ATM bot"
+python setup_initial.py
+```
+
+Esto hará automáticamente:
+✅ Crear directorios necesarios
+✅ Instalar dependencias
+✅ Crear configuración inicial
+✅ Crear usuario de demo
+
+### Opción 2: Instalación Manual
+```bash
+# 1. Activar ambiente virtual
+.\venv\Scripts\Activate
+
+# 2. Instalar dependencias
+pip install -r requirements.txt
+
+# 3. Verificar instalación
+python test_funcionalidades.py
+```
+
+---
+
+## 💻 EJECUTAR LA APLICACIÓN PRINCIPAL
+
+### Comando:
+```bash
+python BOT_CORE/app_principal.py
+```
+
+### Qué sucede:
+1. Se abre la ventana de la aplicación
+2. Aparece pantalla de LOGIN
+3. Ingresa credenciales (ve abajo)
+4. Dashboard principal se carga
+5. ¡Listo para usar!
+
+### Credenciales de Demo (Primera vez):
+- Email: demo@nosotrosrd.com
+- Contraseña: Demo1234!
+
+---
+
+## 📋 FUNCIONALIDADES PRINCIPALES DESDE LA APP
+
+### Dashboard (Inicio)
+- Ver estado del bot
+- Ganancias del día
+- Mi calificación
+- Botones de acción rápida
+
+### ⚙️ Configuración
+**Viajes:**
+- Distancia mínima/máxima
+- Precio mínimo
+- Rentabilidad mínima
+
+**Zonas:**
+- Ver zonas favoritas
+- Agregar nuevas zonas
+- Ver zonas restringidas
+
+**Interfaz:**
+- Cambiar tema (oscuro/claro)
+- Seleccionar idioma
+
+**GPS & Mapas:**
+- Proveedor (Google/OpenStreetMap)
+- Distancia de visualización
+
+### 📞 Soporte
+- Crear nuevos tickets
+- Ver mis tickets
+- FAQ integrado
+- Bandeja de mensajes
+
+### ⭐ Mi Calificación
+- Ver promedio de estrellas
+- Total de viajes
+- Insignias ganadas
+
+---
+
+## 🔧 SERVIDOR WEB (Opcional)
+
+Para panel web remoto:
+
+```bash
+python flask_server.py
+```
+
+Luego accede a:
+```
+http://localhost:5000
+```
+
+---
+
+## 🤖 BOT ANDROID (Requiere dispositivo conectado)
+
+```bash
+python RD_Bot/main.py
+```
+
+Requisitos:
+- Dispositivo Android conectado por USB o ADB
+- Modo de desarrollador activado
+- Permiso de acceso USB
+
+---
+
+## 🧪 PRUEBAS Y VERIFICACIÓN
+
+```bash
+python test_funcionalidades.py
+```
+
+Verifica todos los módulos principales:
+✅ Settings Manager
+✅ Auth Manager
+✅ GPS y Rutas
+✅ Ratings System
+✅ Support System
+✅ Overlay Manager
+✅ Decision Engine
+✅ OCR Extractor
+
+---
+
+## 📊 ARCHIVOS GENERADOS
+
+Después de primera ejecución:
+```
+sentinel_settings.json      ← Configuración persistente
+users_db.json              ← Base de usuarios
+ratings_db.json            ← Ratings y calificaciones
+soporte_db.json            ← Tickets de soporte
+comentarios_db.json        ← Comentarios de usuarios
+sentinel_identity.json     ← Identidad del dispositivo
+sentinel_operations.json   ← Historial de operaciones
+```
+
+---
+
+## 🛑 PROBLEMAS COMUNES Y SOLUCIONES
+
+### "Kivy no encontrado"
+```bash
+pip install kivy kivymd --upgrade
+```
+
+### "Puerto 5000 ya en uso"
+Cambiar puerto en flask_server.py:
+```python
+app.run(port=5001)  # Cambiar 5000 por otro número
+```
+
+### "Error de autenticación"
+1. Eliminar users_db.json
+2. Ejecutar setup_initial.py nuevamente
+3. Usar credenciales de demo
+
+### "Base de datos corrupta"
+```bash
+# Respaldar y eliminar
+copy users_db.json users_db.json.backup
+del users_db.json
+
+# Reiniciar
+python setup_initial.py
+```
+
+### "Aplicación lenta"
+- Cerrar otras aplicaciones
+- Actualizar Kivy: `pip install --upgrade kivy`
+- Limpiar cache: eliminar carpeta `cache/`
+
+---
+
+## 📱 PANTALLA DE CONFIGURACIÓN AVANZADA
+
+Desde la app, pestaña "Configuración" puedes:
+
+1. **Viajes**
+   - Establecer límites de distancia
+   - Precio mínimo aceptable
+   - Ratio mínimo de rentabilidad (RD$/km)
+
+2. **Zonas**
+   - Listar zonas favoritas
+   - Agregar nuevas (nombre, lat, lon)
+   - Listar zonas restringidas
+
+3. **Interfaz**
+   - Cambiar tema: Dark ↔ Light
+   - Idioma: Español / Inglés
+
+4. **GPS**
+   - Mapas: Google o OpenStreetMap
+   - Rango de visualización: 15/30/50 km o minutos
+
+---
+
+## 🔐 CREAR NUEVA CUENTA
+
+Desde pantalla de login:
+1. Clic en "Registrarse"
+2. Completar formulario:
+   - Nombre completo
+   - Email válido
+   - Teléfono
+   - Contraseña fuerte (mín 8 caracteres, mayúscula, número, símbolo)
+3. Aceptar términos
+4. Crear cuenta
+
+---
+
+## 📞 SISTEMA DE SOPORTE
+
+### Crear Ticket:
+1. Ir a "Centro de Soporte"
+2. Tab "Nuevo Ticket"
+3. Seleccionar categoría
+4. Escribir asunto y descripción
+5. Enviar
+
+### Categorías disponibles:
+- General
+- Técnico
+- Billing
+- Seguridad
+- Viaje
+- Conductor
+- Pasajero
+- Otro
+
+---
+
+## 🚗 OVERLAY FLOTANTE DE VIAJES
+
+Se muestra automáticamente cuando:
+- Hay nuevo viaje disponible
+- Aparece por 10 segundos
+- Muestra: monto, distancia, duración, rating
+- Botones: Aceptar / Rechazar
+
+Para activar manualmente:
+```python
+from BOT_CORE.overlay_viajes import overlay_manager
+
+overlay_manager.mostrar_viaje(
+    monto=350.0,
+    distancia=5.2,
+    duracion_estimada=18,
+    calificacion_pasajero=4.9,
+    ubicacion_salida="Centro",
+    ubicacion_llegada="Aeropuerto",
+)
+```
+
+---
+
+## 💾 BACKUP Y RECUPERACIÓN
+
+### Hacer backup:
+```bash
+mkdir backups
+copy sentinel_*.json backups/
+copy users_db.json backups/
+copy ratings_db.json backups/
+```
+
+### Restaurar:
+```bash
+copy backups\*.json .
+```
+
+---
+
+## 📈 ESTADÍSTICAS Y MONITOREO
+
+La app muestra en tiempo real:
+- Viajes de hoy
+- Ganancias acumuladas
+- Promedio por viaje
+- Calificación actual
+- Estado del bot
+
+### Programáticamente:
+```python
+from BOT_CORE.settings_manager import settings
+
+stats = settings.obtener_estadisticas_hoy()
+print(f"Viajes: {stats['viajes']}")
+print(f"Ganancias: ${stats['ganancias']:.2f}")
+```
+
+---
+
+## 🎓 EJEMPLOS DE USO AVANZADO
+
+### Crear zona automáticamente:
+```python
+from BOT_CORE.settings_manager import settings
+
+settings.agregar_zona_favorita(
+    "Mi Lugar Favorito",
+    lat=18.486,
+    lon=-69.931,
+    radio_km=3.0
+)
+```
+
+### Calificar usuario:
+```python
+from BOT_CORE.ratings_system import ratings_manager
+
+ratings_manager.calificar_conductor(
+    "driver_001",
+    "trip_123",
+    5,  # 1-5 estrellas
+    "Excelente servicio"
+)
+```
+
+### Obtener rutas:
+```python
+from BOT_CORE.gps_rutas import mapas_osm
+
+ruta = mapas_osm.obtener_ruta(
+    lat_origen=18.486,
+    lon_origen=-69.931,
+    lat_destino=18.591,
+    lon_destino=-72.295
+)
+
+if ruta:
+    print(f"Distancia: {ruta['distancia_km']} km")
+    print(f"Duración: {ruta['duracion_minutos']} minutos")
+```
+
+---
+
+## ⚡ ATAJOS DE TECLADO
+
+En la aplicación:
+- ESC: Volver a pantalla anterior
+- F1: Ayuda
+- Ctrl+S: Guardar cambios
+- Ctrl+Q: Salir
+
+---
+
+## 📚 DOCUMENTACIÓN COMPLETA
+
+Ver archivos:
+- README_v3.md - Documentación completa
+- code/app_principal.py - Código fuente principal
+- code/settings_manager.py - Gestión de configuración
+
+---
+
+## 🎯 PRÓXIMOS PASOS RECOMENDADOS
+
+1. ✅ Ejecutar setup_initial.py
+2. ✅ Probar aplicación principal
+3. ✅ Crear nueva cuenta personal
+4. ✅ Configurar preferencias
+5. ✅ Verificar módulos con test_funcionalidades.py
+6. ✅ Leer README_v3.md para detalles
+
+---
+
+## 📧 CONTACTO Y SOPORTE
+
+Email: soporte@nosotrosrd.com
+WhatsApp: +1-809-SENTINEL
+Web: https://nosotrosrd.com/soporte
+
+---
+
+¡Disfruta NOSOTROS RD - Sentinel Bot v3.0!
+
+Última generación. Configuración manual. Última en tecnología.
+
+🚀 Sistema listo para producción
+🔒 Seguridad implementada
+⚡ Rendimiento optimizado
+✅ Tests incluidos
