@@ -22,16 +22,17 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
-# Base de datos simple (JSON)
-DB_FILE = 'admin_db.json'
-USERS_FILE = 'users_db.json'
-NOTIFICATIONS_FILE = 'notifications_db.json'
+# Raíz del proyecto para rutas de archivos JSON
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(ROOT_DIR, 'admin_db.json')
+USERS_FILE = os.path.join(ROOT_DIR, 'users_db.json')
+NOTIFICATIONS_FILE = os.path.join(ROOT_DIR, 'notifications_db.json')
 
 # Configuración de email para notificaciones
 SMTP_SERVER = 'smtp.gmail.com'
 SMTP_PORT = 587
-SMTP_USER = 'tu_email@gmail.com'  # Cambiar por tu email
-SMTP_PASS = 'tu_password'  # Cambiar por tu password o app password
+SMTP_USER = os.environ.get('SMTP_USER', 'tu_correo@gmail.com')
+SMTP_PASS = os.environ.get('SMTP_PASS', 'tu_app_password')
 
 # Modelo de Usuario Admin
 class AdminUser(UserMixin):
@@ -56,14 +57,27 @@ class BotUser:
 
 # Funciones de base de datos
 def load_db(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as f:
-            return json.load(f)
-    return {}
+    try:
+        if not os.path.exists(file_path):
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump({}, f)
+            return {}
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
+    except (json.JSONDecodeError, IOError, OSError) as e:
+        print(f"Advertencia: no se pudo cargar {file_path}: {e}")
+        return {}
 
 def save_db(file_path, data):
-    with open(file_path, 'w') as f:
-        json.dump(data, f, indent=4)
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4)
+    except (IOError, OSError) as e:
+        print(f"Error guardando {file_path}: {e}")
 
 def load_admin_users():
     return load_db(DB_FILE)
@@ -112,6 +126,10 @@ class NotificationForm(FlaskForm):
 # Funciones auxiliares
 def send_email(to_email, subject, body):
     try:
+        if not SMTP_USER or not SMTP_PASS:
+            print("Advertencia: credenciales SMTP no configuradas, omitiendo envío de correo.")
+            return False
+
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = SMTP_USER
@@ -123,6 +141,9 @@ def send_email(to_email, subject, body):
         server.sendmail(SMTP_USER, to_email, msg.as_string())
         server.quit()
         return True
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"Error SMTP de autenticación: {e}")
+        return False
     except Exception as e:
         print(f"Error enviando email: {e}")
         return False
