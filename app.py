@@ -360,7 +360,7 @@ def ping():
 
 @app.route('/')
 def home():
-    return "<h1>Servidor Nosotros RD Online</h1>"
+    return "<h1>Servidor Nosotros RD Online - v2.0</h1>"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
