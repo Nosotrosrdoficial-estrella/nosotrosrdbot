@@ -14,7 +14,7 @@ DEFAULT_CONFIG = {
     "refresh_rate": 30,  # segundos
     "server_endpoint": "http://127.0.0.1:5000",
     "backup_endpoints": [
-        "https://atm-admin-aqk6.onrender.com",
+        "https://nosotrosrdbot-1.onrender.com",
         "http://localhost:5000"
     ],
     "high_encryption": True,

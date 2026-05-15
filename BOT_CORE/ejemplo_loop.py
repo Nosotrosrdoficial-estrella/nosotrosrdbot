@@ -5,7 +5,7 @@ import time
 
 # Configura tu HWID y la URL de Render
 HWID = "TU_ID_UNICO_AQUI"
-URL_RENDER = "https://tu-app-en-render.onrender.com/validar/"
+URL_RENDER = "https://nosotrosrdbot-1.onrender.com/validar/"
 
 def loop_principal():
     # 1. Verificar acceso en el Centro de Admisión

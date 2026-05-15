@@ -9,8 +9,8 @@ import json
 OBFUSCATED_ENDPOINTS = {
     # http://127.0.0.1:5000
     "local_dev": "aHR0cDovLzEyNy4wLjAuMTo1MDAwCg==",
-    # https://atm-admin-aqk6.onrender.com
-    "render_prod": "aHR0cHM6Ly9hdG0tYWRtaW4tYXFrNi5vbmRlcmVuZGVyLmNvbQ==",
+    # https://nosotrosrdbot-1.onrender.com
+    "render_prod": "aHR0cHM6Ly9ub3NvdHJvc3JkYm90LTEub25yZW5kZXIuY29t",
     # http://localhost:5000
     "localhost": "aHR0cDovL2xvY2FsaG9zdDo1MDAwCg==",
 }

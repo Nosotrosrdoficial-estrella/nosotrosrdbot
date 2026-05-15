@@ -24,7 +24,7 @@ try:
     from config import ADMIN_URL, VALIDAR_ENDPOINT, REMOTE_ADMIN_URL
 except Exception:
     ADMIN_URL = "http://127.0.0.1:5000"
-    REMOTE_ADMIN_URL = "https://atm-admin-aqk6.onrender.com"
+    REMOTE_ADMIN_URL = "https://nosotrosrdbot-1.onrender.com"
     VALIDAR_ENDPOINT = "/validar/"
 
 # Subscription Validation Protocol endpoints

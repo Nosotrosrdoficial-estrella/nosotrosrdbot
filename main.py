@@ -8,7 +8,7 @@ import requests
 class SentinelApp(App):
     def build(self):
         # Aquí es donde ocurre la magia del enlace
-        url_render = "https://atm-admin-aqk6.onrender.com/validar/TEST_ID"
+        url_render = "https://nosotrosrdbot-1.onrender.com/ping"
         
         try:
             response = requests.get(url_render, timeout=5)
