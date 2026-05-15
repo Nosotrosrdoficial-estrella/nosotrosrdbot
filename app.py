@@ -6,7 +6,7 @@ from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
 CORS(app)
 # SECRET_KEY desde variable de entorno o valor por defecto seguro
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'nosotros_rd_sentinel_2026_secure_key')

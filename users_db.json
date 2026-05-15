@@ -1,0 +1,13 @@
+{
+    "test": {
+        "user_id": "test",
+        "email": "test@test.com",
+        "nombre": "",
+        "telefono": "",
+        "plan": "1 Mes",
+        "estado": "pendiente",
+        "fecha_registro": "2026-05-14T22:05:50.868598",
+        "tiempo_uso": 0,
+        "ultimo_acceso": null
+    }
+}
